@@ -7,7 +7,7 @@ from .. import torch_utils
 from .models.retinaface import RetinaFace
 from ..box_utils import batched_decode
 from .utils import decode_landm
-from .config import cfg_re50
+from .config import cfg_mnet
 from .prior_box import PriorBox
 from torch.hub import load_state_dict_from_url
 
@@ -17,9 +17,9 @@ class RetinaNetDetectorONNX(torch.nn.Module):
     def __init__(self, input_imshape, inference_imshape):
         super().__init__()
         self.device = torch.device("cpu")
-        cfg = cfg_re50
+        cfg = cfg_mnet
         state_dict = load_state_dict_from_url(
-            "https://folk.ntnu.no/haakohu/RetinaFace_ResNet50.pth",
+            "https://folk.ntnu.no/haakohu/RetinaFace_mobilenet025.pth",
             map_location=torch_utils.get_device()
         )
         state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
@@ -38,9 +38,11 @@ class RetinaNetDetectorONNX(torch.nn.Module):
         self.variance = torch.nn.Parameter(torch.tensor([0.1, 0.2])).float()
 
     def export_onnx(self, onnx_filepath):
+        print('export_onnx ...')
         try:
             image = cv2.imread("images/0_Parade_marchingband_1_765.jpg")
         except:
+            print('export_onnx FileNotFoundError ...')
             raise FileNotFoundError()
             
         height, width = self.input_imshape

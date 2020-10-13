@@ -29,11 +29,14 @@ class TensorRTRetinaFace:
         onnx_filepath = f"retinaface_input_{identifier}_.onnx"
         onnx_filepath = os.path.join(cache_dir, onnx_filepath)
         if not os.path.isfile(onnx_filepath):
+            print('TensorRTRetinaFace no onnx ...')
             detector = RetinaNetDetectorONNX(
                 input_imshape, inference_imshape)
             detector.export_onnx(onnx_filepath)
-        self.TRT_LOGGER = trt.Logger(trt.tensorrt.Logger.Severity.INFO)
+        self.TRT_LOGGER = trt.Logger(trt.tensorrt.Logger.Severity.VERBOSE)
         self.engine_path = onnx_filepath.replace(".onnx", ".trt")
+        print('TensorRTRetinaFace has onnx ...', onnx_filepath)
+        
         self.engine = self.build_engine(onnx_filepath)
         self.context = self.engine.create_execution_context()
         self.initialize_bindings()
@@ -68,13 +71,14 @@ class TensorRTRetinaFace:
     def build_engine(self, onnx_filepath: str):
         if os.path.isfile(self.engine_path):
             with open(self.engine_path, "rb") as f, trt.Runtime(self.TRT_LOGGER) as runtime:
+                print("--- build_engine\n", self.engine_path)
                 engine = runtime.deserialize_cuda_engine(f.read())
                 return engine
 
         builder = trt.Builder(self.TRT_LOGGER)
         network_creation_flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
         network = builder.create_network(network_creation_flag)
-        print(network)
+        print("network\n", network)
 
         parser = trt.OnnxParser(network, self.TRT_LOGGER)
         # parse ONNX
@@ -86,7 +90,7 @@ class TensorRTRetinaFace:
         print('Completed parsing of ONNX file')
         builder.max_batch_size = 1
         builder.debug_sync = True
-        builder.max_workspace_size = 2**34
+        builder.max_workspace_size = 1 << 28 # 1GB
 
         if builder.platform_has_fast_fp16:
             builder.fp16_mode = True
